@@ -1,10 +1,10 @@
-# API Specifications for Distributor Integration
+# API Specifications for PBF Distributor Integration
 
-## Sistem Farmasi Balimed ↔ PT. PBF Distributor
+## Requirements for PT. PBF Distributor System Development
 
 ### Overview
 
-Dokumentasi ini berisi spesifikasi API lengkap untuk integrasi otomatis antara Sistem Farmasi Balimed dengan Sistem Distributor PT. PBF. Integrasi ini mencakup seluruh siklus supply chain management dari Purchase Order hingga Pemenuhan Retur.
+Dokumentasi ini berisi spesifikasi API yang **harus disiapkan oleh programmer PT. PBF** untuk integrasi otomatis dengan Sistem Farmasi Balimed. Setiap endpoint dan fitur yang dijelaskan dalam dokumen ini perlu diimplementasikan di sistem distributor untuk memungkinkan komunikasi seamless dengan Balimed.
 
 ---
 
@@ -12,171 +12,191 @@ Dokumentasi ini berisi spesifikasi API lengkap untuk integrasi otomatis antara S
 
 ### 📋 [1. Purchase Order API](01-purchase-order-api.md)
 
-**Database**: `m_farmasi_po`, `t_farmasi_po`
+**Yang Harus Disiapkan PBF**:
 
-**Key Features**:
+**Endpoints yang Harus Dibuat**:
+-   `POST /api/distributor/purchase-orders` - **Terima PO dari Balimed**
+-   `GET /api/distributor/purchase-orders/{po}` - **Berikan detail PO**
 
--   Send PO to distributor automatically
--   Receive PO status updates (approved/rejected/partial)
--   Real-time stock level monitoring
--   Multi-location hospital support
+**Endpoints yang Harus Dipanggil PBF**:
+-   `PATCH /api/balimed/purchase-orders/{po}/status` - **Kirim update status ke Balimed**
 
-**Main Endpoints**:
-
--   `POST /api/distributor/purchase-orders` - Send PO
--   `PATCH /api/balimed/purchase-orders/{po}/status` - Receive status update
--   `GET /api/distributor/purchase-orders/{po}` - Get PO details
+**Fitur yang Harus Diimplementasi**:
+-   Penerimaan PO secara otomatis dari Balimed
+-   Validasi dan approval PO (approved/rejected/partial)
+-   Pengiriman status update real-time ke Balimed
+-   Support multi-location untuk berbagai rumah sakit
 
 ---
 
 ### 📦 [2. Receiving Order API](02-receiving-order-api.md)
 
-**Database**: `m_farmasi_ro`, `t_farmasi_ro`
+**Yang Harus Disiapkan PBF**:
 
-**Key Features**:
+**Endpoints yang Harus Dipanggil PBF**:
+-   `POST /api/balimed/receiving-orders` - **Kirim notifikasi pengiriman ke Balimed**
 
--   Receive delivery notifications with batch info
--   Handle partial deliveries and discrepancies
--   Automatic stock updates with FIFO/FEFO
--   Invoice verification and finance integration
+**Endpoints yang Harus Dibuat**:
+-   `POST /api/distributor/receiving-orders/{ro}/confirmation` - **Terima konfirmasi dari Balimed**
+-   `POST /api/distributor/receiving-orders/{ro}/discrepancy` - **Terima laporan masalah dari Balimed**
 
-**Main Endpoints**:
-
--   `POST /api/balimed/receiving-orders` - Receive delivery notification
--   `POST /api/distributor/receiving-orders/{ro}/confirmation` - Send confirmation
--   `POST /api/distributor/receiving-orders/{ro}/discrepancy` - Report issues
+**Fitur yang Harus Diimplementasi**:
+-   Pengiriman notifikasi delivery dengan informasi batch lengkap
+-   Penanganan partial delivery dan discrepancy dari Balimed
+-   Integrasi dengan sistem invoice dan finance distributor
+-   Update status pengiriman berdasarkan konfirmasi Balimed
 
 ---
 
 ### 🔄 [3. Retur Distributor API](03-retur-distributor-api.md)
 
-**Database**: `m_farmasi_retur_d`, `t_farmasi_retur_d`
+**Yang Harus Disiapkan PBF**:
 
-**Key Features**:
+**Endpoints yang Harus Dibuat**:
+-   `POST /api/distributor/returns` - **Terima request retur dari Balimed**
+-   `DELETE /api/distributor/returns/{return}` - **Terima pembatalan retur dari Balimed**
 
--   Automated return request processing
--   Multiple return reasons (damaged, expired, excess, etc.)
--   Photo evidence and documentation support
--   Return status tracking and approval workflow
+**Endpoints yang Harus Dipanggil PBF**:
+-   `PATCH /api/balimed/returns/{return}/status` - **Kirim update status retur ke Balimed**
 
-**Main Endpoints**:
-
--   `POST /api/distributor/returns` - Send return request
--   `PATCH /api/balimed/returns/{return}/status` - Receive status update
--   `DELETE /api/distributor/returns/{return}` - Cancel return
+**Fitur yang Harus Diimplementasi**:
+-   Penerimaan dan processing request retur otomatis
+-   Penanganan berbagai alasan retur (damaged, expired, excess, dll)
+-   Penerimaan foto evidence dan dokumentasi pendukung
+-   Workflow approval retur dan tracking status
 
 ---
 
 ### 💰 [4. Faktur Retur API](04-faktur-retur-api.md)
 
-**Database**: `m_farmasi_retur_d_faktur`, `t_farmasi_faktur_retur_d`
+**Yang Harus Disiapkan PBF**:
 
-**Key Features**:
+**Endpoints yang Harus Dipanggil PBF**:
+-   `POST /api/balimed/credit-notes` - **Kirim credit note ke Balimed**
 
--   Credit note processing and verification
--   Dispute handling and resolution
--   Finance system integration
--   Accounts payable adjustments
+**Endpoints yang Harus Dibuat**:
+-   `POST /api/distributor/credit-notes/{cn}/verification` - **Terima verifikasi dari Balimed**
+-   `POST /api/distributor/credit-notes/{cn}/dispute` - **Terima dispute dari Balimed**
 
-**Main Endpoints**:
-
--   `POST /api/balimed/credit-notes` - Receive credit note
--   `POST /api/distributor/credit-notes/{cn}/verification` - Send verification
--   `POST /api/distributor/credit-notes/{cn}/dispute` - Handle disputes
+**Fitur yang Harus Diimplementasi**:
+-   Pembuatan dan pengiriman credit note otomatis
+-   Penerimaan verifikasi credit note dari Balimed
+-   Penanganan dispute dan resolution
+-   Integrasi dengan sistem finance dan accounts payable distributor
 
 ---
 
 ### ✅ [5. Pemenuhan Retur API](05-pemenuhan-retur-api.md)
 
-**Database**: `m_farmasi_receiving_retur_d`, `t_farmasi_receiving_retur_d`
+**Yang Harus Disiapkan PBF**:
 
-**Key Features**:
+**Endpoints yang Harus Dipanggil PBF**:
+-   `POST /api/balimed/return-fulfillments` - **Kirim notifikasi replacement ke Balimed**
 
--   Replacement goods delivery management
--   Exchange and upgrade handling
--   Quality assurance and batch tracking
--   Return case closure workflow
+**Endpoints yang Harus Dibuat**:
+-   `POST /api/distributor/return-fulfillments/{id}/confirmation` - **Terima konfirmasi dari Balimed**
 
-**Main Endpoints**:
+**Endpoints yang Harus Dipanggil PBF**:
+-   `GET /api/balimed/return-fulfillments/{id}/status` - **Cek status dari Balimed**
 
--   `POST /api/balimed/return-fulfillments` - Receive replacement notification
--   `POST /api/distributor/return-fulfillments/{id}/confirmation` - Send confirmation
--   `GET /api/balimed/return-fulfillments/{id}/status` - Track status
+**Fitur yang Harus Diimplementasi**:
+-   Management pengiriman replacement goods
+-   Penanganan exchange dan upgrade produk
+-   Quality assurance dan batch tracking
+-   Workflow closure untuk kasus retur
 
 ---
 
-## 🏗️ Technical Architecture
+### 📊 [6. Stock Tracking API](06-stock-tracking-api.md)
 
-### Database Architecture
+**Yang Harus Disiapkan PBF**:
+
+**Endpoints yang Harus Dibuat**:
+-   `GET /api/distributor/stock` - **Berikan informasi stok terbaru**
+-   `GET /api/distributor/stock/{product_code}` - **Berikan detail stok produk spesifik**
+-   `POST /api/distributor/stock/reserve` - **Terima request reservasi stok**
+
+**Endpoints yang Harus Dipanggil PBF**:
+-   `POST /api/balimed/stock-updates` - **Kirim notifikasi perubahan stok real-time**
+
+**Fitur yang Harus Diimplementasi**:
+-   Real-time stock monitoring dan updates
+-   Batch tracking dengan FIFO/FEFO management
+-   Stock reservation system untuk PO
+-   Historical stock movement tracking
+
+---
+
+## 🏗️ Technical Requirements for PBF
+
+### Database yang Perlu Disiapkan PBF
+
+PBF perlu menyiapkan struktur database yang dapat menerima dan menyimpan data dari Balimed:
 
 ```
-📊 Master Tables (m_farmasi_*)
-├── m_farmasi_po (Purchase Orders)
-├── m_farmasi_ro (Receiving Orders)
-├── m_farmasi_retur_d (Returns to Distributor)
-├── m_farmasi_retur_d_faktur (Credit Notes)
-└── m_farmasi_receiving_retur_d (Replacement Receipts)
+📊 Tables untuk Purchase Orders
+├── distributor_po_header (Header PO dari Balimed)
+├── distributor_po_detail (Detail item PO dari Balimed)
+└── distributor_po_status (Status tracking PO)
 
-📋 Detail Tables (t_farmasi_*)
-├── t_farmasi_po (PO Line Items)
-├── t_farmasi_ro (RO Line Items)
-├── t_farmasi_retur_d (Return Line Items)
-├── t_farmasi_faktur_retur_d (Credit Note Line Items)
-└── t_farmasi_receiving_retur_d (Replacement Line Items)
+📋 Tables untuk Returns
+├── distributor_returns_header (Header retur dari Balimed)
+├── distributor_returns_detail (Detail item retur)
+└── distributor_returns_status (Status tracking retur)
 
-🔗 Reference Tables
-├── m_farmasi_distributor (Distributor Master)
-├── m_farmasi_barang (Product Master)
-├── m_farmasi_lokasi_barang (Stock Locations)
-└── m_ref (Reference Codes & Status)
+🔗 Master Data yang Harus Sinkron
+├── balimed_hospitals (Data rumah sakit Balimed)
+├── product_mapping (Mapping produk PBF-Balimed)
+├── unit_conversions (Konversi satuan)
+└── price_contracts (Kontrak harga)
 ```
 
-### Integration Flow
+### Integration Flow - Perspektif PBF
 
 ```mermaid
 graph TD
-    A[Create PO] --> B[Send to Distributor]
-    B --> C[Receive PO Status]
-    C --> D[Distributor Delivers]
-    D --> E[Receive RO Notification]
-    E --> F[Verify & Confirm Receipt]
-    F --> G[Stock Updated]
+    A[Balimed Creates PO] --> B[PBF Receives PO via API]
+    B --> C[PBF Validates & Approves]
+    C --> D[PBF Sends Status Update]
+    D --> E[PBF Prepares Delivery]
+    E --> F[PBF Sends RO Notification]
+    F --> G[PBF Receives Confirmation]
 
-    H[Create Return] --> I[Send to Distributor]
-    I --> J[Receive Return Status]
-    J --> K{Approved?}
-    K -->|Yes| L[Receive Credit Note]
-    K -->|Yes| M[Receive Replacement]
-    L --> N[Verify Credit Note]
-    M --> O[Confirm Replacement]
+    H[Balimed Creates Return] --> I[PBF Receives Return Request]
+    I --> J[PBF Reviews & Approves]
+    J --> K[PBF Sends Status Update]
+    K --> L[PBF Generates Credit Note]
+    K --> M[PBF Prepares Replacement]
+    L --> N[PBF Sends Credit Note]
+    M --> O[PBF Sends Replacement]
 
-    style A fill:#e1f5fe
-    style G fill:#c8e6c9
-    style N fill:#fff3e0
-    style O fill:#f3e5f5
+    style B fill:#ffebee
+    style F fill:#f3e5f5
+    style I fill:#fff3e0
+    style N fill:#e8f5e8
 ```
 
 ---
 
-## 🔧 Implementation Guide
+## 🔧 Implementation Guide untuk PBF
 
-### 1. Authentication & Security
+### 1. Authentication & Security yang Harus Disiapkan PBF
 
 ```http
-# Required Headers
+# Headers yang Harus Diterima PBF
 Authorization: Bearer {api_token}
 Content-Type: application/json
 X-Hospital-Code: BALIMED_DENPASAR
 X-Request-ID: {unique_request_id}
 ```
 
-**Security Requirements**:
+**Requirement Security untuk PBF**:
 
--   HTTPS mandatory for all communications
--   Bearer token authentication with 24-hour expiry
--   Rate limiting: 1000 requests/hour per endpoint
--   IP whitelisting for both systems
--   HMAC-SHA256 signing for critical operations
+-   **WAJIB** HTTPS untuk semua komunikasi
+-   **WAJIB** validasi Bearer token dengan expiry 24-jam
+-   **WAJIB** implementasi rate limiting: 1000 requests/hour per endpoint
+-   **WAJIB** IP whitelisting untuk Balimed servers
+-   **WAJIB** HMAC-SHA256 signing untuk operasi kritis
 
 ### 2. Error Handling
 
@@ -254,33 +274,33 @@ CREATED → SENT → RECEIVED → UNDER_REVIEW → APPROVED/REJECTED → COMPLET
 
 ## 🚀 Quick Start Guide
 
-### Step 1: Environment Setup
+### Step 1: Setup Environment PBF
 
-1. Configure API endpoints and credentials
-2. Set up SSL certificates for HTTPS
-3. Configure IP whitelisting
-4. Test authentication endpoints
+1. **WAJIB** Setup API endpoints sesuai spesifikasi
+2. **WAJIB** Install SSL certificates untuk HTTPS
+3. **WAJIB** Configure IP whitelisting untuk Balimed
+4. **WAJIB** Test semua authentication endpoints
 
-### Step 2: Master Data Sync
+### Step 2: Sinkronisasi Master Data
 
-1. Synchronize distributor information
-2. Map product codes between systems
-3. Validate unit codes and conversions
-4. Test data integrity
+1. **WAJIB** Sinkronisasi data produk dengan Balimed
+2. **WAJIB** Mapping kode produk PBF ke kode Balimed
+3. **WAJIB** Validasi unit dan konversi satuan
+4. **WAJIB** Test integritas data
 
-### Step 3: Integration Testing
+### Step 3: Testing Integrasi
 
-1. Test PO creation and approval flow
-2. Test RO delivery and confirmation
-3. Test return creation and processing
-4. Test credit note and replacement workflows
+1. **WAJIB** Test penerimaan dan approval PO
+2. **WAJIB** Test pengiriman RO dan konfirmasi
+3. **WAJIB** Test penerimaan dan processing retur
+4. **WAJIB** Test credit note dan replacement workflows
 
-### Step 4: Production Deployment
+### Step 4: Deployment Production
 
-1. Configure monitoring and alerting
-2. Set up error logging and reporting
-3. Train staff on new workflows
-4. Monitor performance metrics
+1. **WAJIB** Setup monitoring dan alerting
+2. **WAJIB** Setup error logging dan reporting
+3. **WAJIB** Training staff PBF untuk workflow baru
+4. **WAJIB** Monitor performance metrics
 
 ---
 
@@ -372,4 +392,51 @@ GET /api/version
 
 ---
 
-_Dokumen ini dibuat berdasarkan analisis mendalam terhadap struktur database dan business logic Sistem Farmasi Balimed. Implementasi API ini akan memungkinkan integrasi seamless untuk otomatisasi complete pharmaceutical supply chain management._
+---
+
+## 📝 Summary Requirement untuk PBF
+
+### Yang WAJIB Disiapkan oleh Programmer PT. PBF:
+
+#### 1. **Endpoints yang Harus DIBUAT di Sistem PBF** (untuk menerima dari Balimed):
+- `POST /api/distributor/purchase-orders` - Terima PO dari Balimed
+- `GET /api/distributor/purchase-orders/{po}` - Berikan detail PO
+- `POST /api/distributor/returns` - Terima request retur dari Balimed
+- `DELETE /api/distributor/returns/{return}` - Terima pembatalan retur
+- `POST /api/distributor/receiving-orders/{ro}/confirmation` - Terima konfirmasi penerimaan
+- `POST /api/distributor/receiving-orders/{ro}/discrepancy` - Terima laporan masalah
+- `POST /api/distributor/credit-notes/{cn}/verification` - Terima verifikasi credit note
+- `POST /api/distributor/credit-notes/{cn}/dispute` - Terima dispute
+- `POST /api/distributor/return-fulfillments/{id}/confirmation` - Terima konfirmasi replacement
+- `GET /api/distributor/stock` - **Berikan informasi stok terbaru**
+- `GET /api/distributor/stock/{product_code}` - **Berikan detail stok produk spesifik**
+- `POST /api/distributor/stock/reserve` - **Terima request reservasi stok**
+
+#### 2. **Endpoints Balimed yang Harus DIPANGGIL oleh PBF** (untuk mengirim ke Balimed):
+- `PATCH /api/balimed/purchase-orders/{po}/status` - Kirim update status PO
+- `POST /api/balimed/receiving-orders` - Kirim notifikasi pengiriman
+- `PATCH /api/balimed/returns/{return}/status` - Kirim update status retur
+- `POST /api/balimed/credit-notes` - Kirim credit note
+- `POST /api/balimed/return-fulfillments` - Kirim notifikasi replacement
+- `GET /api/balimed/return-fulfillments/{id}/status` - Cek status replacement
+- `POST /api/balimed/stock-updates` - **Kirim notifikasi perubahan stok real-time**
+
+#### 3. **Security & Authentication yang WAJIB**:
+- HTTPS untuk semua komunikasi
+- Bearer token authentication
+- Validasi X-Hospital-Code header
+- IP whitelisting untuk server Balimed
+- HMAC-SHA256 signing untuk operasi kritis
+
+#### 4. **Database yang Perlu Disiapkan**:
+- Tables untuk menyimpan data PO dari Balimed
+- Tables untuk tracking status dan workflow
+- Master data mapping produk PBF-Balimed
+- Tables untuk retur dan credit note management
+- **Tables untuk real-time stock management**
+- **Tables untuk batch tracking dan FIFO/FEFO**
+- **Tables untuk stock reservation system**
+
+---
+
+_Dokumen ini berisi spesifikasi lengkap yang **HARUS diimplementasikan oleh programmer PT. PBF** untuk integrasi dengan Sistem Farmasi Balimed. Setiap endpoint dan fitur yang dijelaskan adalah requirement wajib untuk komunikasi seamless._

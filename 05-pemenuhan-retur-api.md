@@ -1,623 +1,456 @@
 # Pemenuhan Retur API Specification
 
-## Integrasi Sistem Farmasi Balimed dengan Distributor PT. PBF
+## Requirements untuk Programmer PT. PBF
 
-### Database Structure Analysis
+### Yang Harus Disiapkan oleh PBF
 
-**Master Table**: `m_farmasi_receiving_retur_d`
-**Detail Table**: `t_farmasi_receiving_retur_d`
+API ini menjelaskan struktur data dan endpoint yang **WAJIB disiapkan oleh programmer PT. PBF** untuk mengirim replacement goods dan menerima konfirmasi dari Sistem Farmasi Balimed.
 
-### Master Receiving Retur Fields
+---
 
-```php
-// Model: ReceivingReturD (m_farmasi_receiving_retur_d)
-protected $fillable = [
-    'tanggal',              // Date - Receiving date for return fulfillment
-    'nomor',                // String - Receiving retur number (auto-generated)
-    'nomor_faktur',         // String - Invoice number for replacement goods
-    'distributor_id',       // Integer - Foreign key to m_farmasi_distributor
-    'disc',                 // Decimal - Discount percentage for replacement
-    'ppn',                  // Decimal - Tax percentage (PPN)
-    'carabayar_id',         // Integer - Payment method (usually FREE for replacement)
-    'tanggal_jt',           // Date - Due date (usually N/A for replacement)
-    'tanggal_faktur',       // Date - Invoice date for replacement
-    'biaya_lain',           // Decimal - Additional charges
-    'kepada',               // String - Delivery recipient name
-    'telp',                 // String - Recipient phone number
-    'alamat',               // Text - Delivery address
-    'note',                 // Text - Additional notes
-    'file_pdf',             // String - Uploaded invoice/delivery note file path
-    'created_by',           // String - User ID who created
-    'updated_by',           // String - User ID who updated
-    'subunit_owner_id',     // Integer - Hospital subunit owner
-    'jdoc_kode',            // String - Document journal code
-    'kode_doc',             // String - Document code
-    'status_proof_kode',    // String - Approval status code
-    'status_kode',          // String - Receiving status code
-    'total_faktur',         // Decimal - Total replacement value
-    'disc_rupiah',          // Decimal - Discount amount in rupiah
-];
-```
+## Endpoints yang WAJIB Dibuat dan Dipanggil PBF
 
-### Detail Receiving Retur Fields
+### 1. Kirim Notifikasi Replacement ke Balimed
 
-```php
-// Model: TReceivingReturD (t_farmasi_receiving_retur_d)
-protected $fillable = [
-    'receivingreturd_id',   // Integer - Foreign key to m_farmasi_receiving_retur_d
-    'barang_id',            // Integer - Foreign key to m_farmasi_barang
-    'satuan_id',            // Integer - Unit type ID
-    'qty_ff',               // Integer - Quantity fulfilled/received
-    'harga_hna',            // Decimal - Unit price (HNA = Harga Netto Apotek)
-    'no_batch',             // String - Batch number of replacement items
-    'ed',                   // Date - Expiry date of replacement items
-    'returd_id',            // Integer - Reference to original return (m_farmasi_retur_d)
-    'created_by',           // String - User ID
-    'updated_by',           // String - User ID
-];
-```
+**Endpoint yang WAJIB Dipanggil PBF**: `POST /api/balimed/return-fulfillments`
+**Direction**: **PBF (mengirim)** → Balimed
+**Trigger**: Setelah PBF mengirim replacement goods
 
-### Fulfillment Types
-
-```php
-'REPLACEMENT'       => 'Penggantian Barang',
-'EXCHANGE'          => 'Tukar dengan Barang Lain',
-'UPGRADE'           => 'Upgrade ke Produk yang Lebih Baik',
-'PARTIAL_REPLACEMENT' => 'Penggantian Sebagian',
-'STORE_CREDIT'      => 'Store Credit (Future Use)',
-'COMBINED'          => 'Kombinasi Multiple Actions'
-```
-
-### API Endpoints
-
-#### 1. Receive Replacement Goods Notification from Distributor
-
-**Endpoint**: `POST /api/balimed/return-fulfillments`
-**Direction**: Distributor → Balimed
-**Content-Type**: `application/json`
-
-**Headers:**
+**Headers yang WAJIB Dikirim PBF:**
 
 ```http
-Authorization: Bearer {api_token}
+Authorization: Bearer {api_token}        # Token yang diberikan Balimed
 Content-Type: application/json
-X-Distributor-Code: DIST001
-X-Request-ID: {unique_request_id}
+X-Distributor-Code: PBF_DIST_001        # Kode distributor PBF
+X-Request-ID: {unique_request_id}       # ID unik untuk tracking
 ```
 
-**Request Payload:**
+**Payload yang WAJIB Dikirim PBF:**
 
 ```json
 {
     "header": {
-        "nomor_receiving_retur": "RRD/24/12/0001/DENPSR",
-        "fulfillment_type": "REPLACEMENT",
-        "tanggal": "2024-12-25",
-        "tanggal_faktur": "2024-12-25",
-        "nomor_faktur": "FK/REPLACEMENT/DIST001/2024/001",
-        "distributor_id": 1,
-        "distributor_code": "DIST001",
+        "nomor_replacement": "RPL/PBF/24/001",
+        "tanggal_replacement": "2024-12-25",
+        "retur_reference": "RTN/PBF/24/001",
+        "nomor_retur_balimed": "RTN/24/12/0001/DENPSR",
+        "credit_note_reference": "CN/PBF001/24/001",
+        "jenis_replacement": "PRODUCT_REPLACEMENT",
+        "distributor_code": "PBF_DIST_001",
         "distributor_name": "PT. PBF Medika",
-        "subunit_owner_id": 1,
-        "subunit_code": "FARM_IGD",
-        "return_reference": "RTN/24/12/0001/DENPSR",
-        "distributor_return_id": "DRTN-2024-001",
-        "credit_note_reference": "CN/DIST001/24/001-REV1",
-        "carabayar_id": 5,
-        "cara_bayar": "FREE_REPLACEMENT",
-        "disc": 0.0,
-        "ppn": 0.0,
-        "biaya_lain": 0.0,
-        "total_faktur": 11875.0,
-        "disc_rupiah": 0.0,
-        "kepada": "Apt. Made Sari",
-        "telp": "0361-224466",
-        "alamat": "Jl. Mahendradatta No.57, Denpasar",
-        "note": "Penggantian barang untuk retur RTN/24/12/0001/DENPSR sesuai kesepakatan",
-        "delivery_date": "2024-12-25T14:00:00+07:00",
-        "driver_name": "Wayan Bagus",
-        "driver_phone": "0812-3456-7890",
-        "vehicle_number": "DK 1234 AB",
-        "fulfillment_method": "DIRECT_DELIVERY",
-        "estimated_arrival": "2024-12-25T14:30:00+07:00"
+        "hospital_code": "BALIMED_DENPASAR",
+        "nomor_faktur_replacement": "FK/RPL/PBF001/2024/001",
+        "tanggal_faktur": "2024-12-25",
+        "metode_pengiriman": "DELIVERY",
+        "biaya_pengiriman": 0.0,
+        "penerima": "Apt. Made Sari",
+        "telp_penerima": "0361-224466",
+        "alamat_pengiriman": "Jl. Mahendradatta No.57, Denpasar",
+        "catatan": "Replacement untuk retur barang damaged",
+        "nama_driver": "Wayan Bagus",
+        "telp_driver": "0812-3456789",
+        "nomor_kendaraan": "DK 1234 AB",
+        "estimasi_tiba": "2024-12-25T14:00:00+07:00",
+        "created_by": "SYS_PBF",
+        "created_date": "2024-12-25T09:00:00+07:00"
     },
-    "details": [
+    "detail_replacement": [
         {
             "line_number": 1,
-            "barang_id": 123,
-            "kode_barang": "BRG001",
-            "nama_barang": "Paracetamol 500mg",
-            "nama_generik": "Parasetamol",
-            "satuan_id": 1,
-            "satuan_kode": "STRIP",
-            "qty_ff": 5,
-            "harga_hna": 2500.0,
-            "no_batch": "PCM241201",
-            "ed": "2027-12-01",
-            "sub_total": 11875.0,
-            "replacement_reason": "Penggantian untuk barang rusak",
-            "original_return_line": 1,
-            "original_batch": "PCM240801",
-            "original_ed": "2026-08-01",
-            "quality_status": "NEW_STOCK",
-            "storage_requirement": "ROOM_TEMPERATURE",
-            "keterangan": "Replacement dengan batch baru, ED lebih panjang"
+            "retur_line_reference": 1,
+            "kode_barang_original": "BRG001",
+            "nama_barang_original": "Paracetamol 500mg",
+            "kode_barang_replacement": "BRG001",
+            "nama_barang_replacement": "Paracetamol 500mg",
+            "satuan": "STRIP",
+            "qty_retur": 5,
+            "qty_replacement": 5,
+            "harga_satuan": 2500.0,
+            "disc_persen": 5.0,
+            "subtotal": 11875.0,
+            "no_batch_original": "PCM240801",
+            "no_batch_replacement": "PCM241101",
+            "expired_original": "2026-08-01",
+            "expired_replacement": "2026-11-01",
+            "alasan_replacement": "Same product dengan batch lebih baru",
+            "kondisi_barang": "BARU",
+            "jenis_replacement": "SAME_PRODUCT",
+            "catatan_item": "Batch baru dengan expired date lebih panjang"
+        },
+        {
+            "line_number": 2,
+            "retur_line_reference": 2,
+            "kode_barang_original": "BRG002",
+            "nama_barang_original": "Amoxicillin 500mg",
+            "kode_barang_replacement": "BRG002B",
+            "nama_barang_replacement": "Amoxicillin 500mg - Brand B",
+            "satuan": "STRIP",
+            "qty_retur": 1,
+            "qty_replacement": 1,
+            "harga_satuan": 3500.0,
+            "disc_persen": 5.0,
+            "subtotal": 3325.0,
+            "no_batch_original": "AMX240901",
+            "no_batch_replacement": "AMX2B241001",
+            "expired_original": "2026-09-01",
+            "expired_replacement": "2027-10-01",
+            "alasan_replacement": "Produk equivalent dengan kualitas lebih baik",
+            "kondisi_barang": "BARU",
+            "jenis_replacement": "EQUIVALENT_PRODUCT",
+            "catatan_item": "Upgrade ke brand yang lebih baik"
         }
     ],
-    "quality_assurance": {
-        "qa_certificate": "QA/DIST001/2024/456",
-        "qa_date": "2024-12-24",
-        "qa_officer": "Dr. Kadek Suarta",
-        "temperature_during_transport": "20-25°C",
-        "packaging_condition": "SEALED_ORIGINAL",
-        "storage_conditions_met": true,
-        "special_handling": []
-    },
-    "logistics_info": {
-        "pickup_date": "2024-12-25T10:00:00+07:00",
-        "dispatch_time": "2024-12-25T11:00:00+07:00",
-        "estimated_delivery": "2024-12-25T14:30:00+07:00",
-        "transport_conditions": {
-            "temperature_controlled": false,
-            "cold_chain_required": false,
-            "special_handling": []
-        },
-        "tracking_number": "TRK/DIST001/241225/001"
-    },
-    "attachments": [
+    "dokumen_pendukung": [
         {
-            "type": "REPLACEMENT_INVOICE",
-            "filename": "replacement_invoice_001.pdf",
-            "file_base64": "JVBERi0xLjQKJeLjz9MKMSAwIG9iago8PAovVHlwZSAvQ2F0YWxvZwo...",
-            "description": "Invoice untuk barang penggantian"
+            "jenis_dokumen": "DELIVERY_NOTE",
+            "nama_file": "delivery_note_RPL_PBF_24_001.pdf",
+            "url_download": "https://pbf.com/documents/delivery_RPL_PBF_24_001.pdf",
+            "hash_file": "abc123def456",
+            "ukuran_file": 256000
         },
         {
-            "type": "QA_CERTIFICATE",
-            "filename": "qa_cert_PCM241201.pdf",
-            "file_base64": "JVBERi0xLjQKJeLjz9MKMSAwIG9iago8PAovVHlwZSAvQ2F0YWxvZwo...",
-            "description": "Quality assurance certificate"
-        },
-        {
-            "type": "DELIVERY_NOTE",
-            "filename": "delivery_note_replacement.pdf",
-            "file_base64": "JVBERi0xLjQKJeLjz9MKMSAwIG9iago8PAovVHlwZSAvQ2F0YWxvZwo...",
-            "description": "Surat jalan barang penggantian"
+            "jenis_dokumen": "REPLACEMENT_CERTIFICATE",
+            "nama_file": "replacement_cert.pdf",
+            "url_download": "https://pbf.com/documents/cert_RPL_PBF_24_001.pdf",
+            "hash_file": "def456ghi789",
+            "ukuran_file": 128000
         }
     ]
 }
 ```
 
-**Success Response (200):**
+**Response yang Akan Diterima PBF dari Balimed:**
 
 ```json
 {
     "status": "success",
-    "message": "Replacement delivery notification berhasil diterima",
-    "data": {
-        "nomor_receiving_retur": "RRD/24/12/0001/DENPSR",
-        "fulfillment_id": "RFUL-2024-001",
-        "status": "DELIVERY_SCHEDULED",
-        "scheduled_delivery": "2024-12-25T14:30:00+07:00",
-        "assigned_receiver": "Apt. Made Sari",
-        "receiving_location": "Gudang Farmasi IGD",
-        "tracking_number": "TRK/DIST001/241225/001",
-        "estimated_verification_time": "30 menit setelah barang tiba"
-    }
+    "message": "Notifikasi replacement berhasil diterima",
+    "replacement_id": "RPL/BALIMED/24/001",
+    "nomor_replacement_pbf": "RPL/PBF/24/001",
+    "status_replacement": "PENDING_RECEIPT",
+    "estimasi_konfirmasi": "2024-12-25T17:00:00+07:00",
+    "pic_penerima": "Apt. Made Sari",
+    "received_at": "2024-12-25T09:05:00+07:00"
 }
 ```
 
-#### 2. Send Replacement Goods Confirmation to Distributor
+### 2. Terima Konfirmasi Replacement dari Balimed
 
-**Endpoint**: `POST /api/distributor/return-fulfillments/{fulfillment_id}/confirmation`
-**Direction**: Balimed → Distributor
+**Endpoint yang WAJIB Dibuat PBF**: `POST /api/distributor/return-fulfillments/{replacement_id}/confirmation`
+**Direction**: Balimed → **PBF (menerima)**
 
-**Request Payload:**
+**Headers yang WAJIB Diterima dan Divalidasi PBF:**
+
+```http
+Authorization: Bearer {api_token}
+Content-Type: application/json
+X-Hospital-Code: BALIMED_DENPASAR
+X-Request-ID: {unique_request_id}
+```
+
+**Payload yang Akan Diterima PBF dari Balimed:**
 
 ```json
 {
-    "fulfillment_id": "RFUL-2024-001",
-    "nomor_receiving_retur": "RRD/24/12/0001/DENPSR",
-    "tracking_number": "TRK/DIST001/241225/001",
-    "receiving_date": "2024-12-25T14:45:00+07:00",
-    "receiving_status": "FULLY_RECEIVED",
-    "received_by": "APT001",
-    "received_by_name": "Apt. Made Sari",
-    "receiving_location": "Gudang Farmasi IGD",
-    "note": "Semua replacement items diterima dengan kondisi baik",
-    "received_items": [
+    "replacement_id": "RPL/BALIMED/24/001",
+    "nomor_replacement_pbf": "RPL/PBF/24/001",
+    "status_konfirmasi": "CONFIRMED",
+    "tanggal_konfirmasi": "2024-12-25T15:30:00+07:00",
+    "penerima_balimed": "Apt. Made Sari",
+    "catatan_penerimaan": "Semua replacement diterima dalam kondisi baik",
+    "detail_konfirmasi": [
         {
             "line_number": 1,
             "kode_barang": "BRG001",
-            "no_batch": "PCM241201",
-            "ed": "2027-12-01",
-            "qty_delivered": 5,
-            "qty_received": 5,
-            "qty_accepted": 5,
-            "qty_rejected": 0,
-            "condition": "EXCELLENT",
-            "packaging_condition": "INTACT",
-            "expiry_check": "PASSED",
-            "quality_check": "PASSED",
-            "storage_location": "RAK-A-01",
-            "acceptance_note": "Kondisi sangat baik, batch baru dengan ED panjang",
-            "rejection_reason": null
+            "qty_diterima": 5,
+            "qty_sesuai": true,
+            "kondisi_diterima": "BAIK",
+            "batch_sesuai": true,
+            "expired_sesuai": true,
+            "status_item": "ACCEPTED",
+            "catatan": "Batch baru dengan kualitas baik"
+        },
+        {
+            "line_number": 2,
+            "kode_barang": "BRG002B",
+            "qty_diterima": 1,
+            "qty_sesuai": true,
+            "kondisi_diterima": "BAIK",
+            "batch_sesuai": true,
+            "expired_sesuai": true,
+            "status_item": "ACCEPTED",
+            "catatan": "Upgrade produk diterima dengan baik"
         }
     ],
-    "quality_verification": {
-        "temperature_on_arrival": "22°C",
-        "packaging_integrity": "100%",
-        "visual_inspection": "PASSED",
-        "documentation_complete": true,
-        "qa_approval": "APPROVED",
-        "verified_by": "APT001",
-        "verification_time": "2024-12-25T15:00:00+07:00"
-    },
-    "stock_update": {
-        "stock_added": 5,
-        "new_stock_total": 95,
-        "stock_location": "RAK-A-01",
-        "batch_registered": true,
-        "fifo_position": "NEWEST",
-        "cost_update": "COMPLETED"
-    },
-    "return_closure": {
-        "original_return": "RTN/24/12/0001/DENPSR",
-        "return_line_completed": [1],
-        "return_status": "FULFILLED",
-        "closure_date": "2024-12-25T15:15:00+07:00",
-        "final_notes": "Return case berhasil diselesaikan dengan replacement"
-    }
+    "retur_case_status": "CLOSED",
+    "satisfaction_rating": 5,
+    "feedback": "Replacement process sangat memuaskan dan cepat"
 }
 ```
 
-**Success Response (200):**
+**Response yang WAJIB Diberikan PBF:**
 
 ```json
 {
     "status": "success",
     "message": "Konfirmasi replacement berhasil diproses",
-    "data": {
-        "fulfillment_id": "RFUL-2024-001",
-        "status": "COMPLETED",
-        "completion_date": "2024-12-25T15:20:00+07:00",
-        "return_case_status": "CLOSED",
-        "customer_satisfaction": "FULFILLED",
-        "next_actions": []
-    }
+    "replacement_id": "RPL/PBF/24/001",
+    "status_replacement": "COMPLETED",
+    "retur_case_status": "CLOSED",
+    "processed_at": "2024-12-25T15:35:00+07:00",
+    "next_action": "Case retur telah selesai"
 }
 ```
 
-#### 3. Handle Partial or Rejected Replacement
+### 3. Cek Status Replacement dari Balimed
 
-**Endpoint**: `POST /api/distributor/return-fulfillments/{fulfillment_id}/partial-rejection`
-**Direction**: Balimed → Distributor
+**Endpoint yang WAJIB Dipanggil PBF**: `GET /api/balimed/return-fulfillments/{replacement_id}/status`
+**Direction**: **PBF (query)** → Balimed
+**Usage**: Untuk monitoring status replacement
 
-**Request Payload:**
+**Headers yang WAJIB Dikirim PBF:**
 
-```json
-{
-    "fulfillment_id": "RFUL-2024-001",
-    "nomor_receiving_retur": "RRD/24/12/0001/DENPSR",
-    "receiving_date": "2024-12-25T14:45:00+07:00",
-    "receiving_status": "PARTIAL_REJECTED",
-    "received_by": "APT001",
-    "received_by_name": "Apt. Made Sari",
-    "note": "Ada ketidaksesuaian pada replacement items",
-    "received_items": [
-        {
-            "line_number": 1,
-            "kode_barang": "BRG001",
-            "no_batch": "PCM241201",
-            "ed": "2027-12-01",
-            "qty_delivered": 5,
-            "qty_received": 5,
-            "qty_accepted": 3,
-            "qty_rejected": 2,
-            "condition": "PARTIAL_DAMAGED",
-            "packaging_condition": "SLIGHTLY_DAMAGED",
-            "expiry_check": "PASSED",
-            "quality_check": "FAILED",
-            "rejection_reason": "2 strip kemasan sedikit rusak saat pengiriman",
-            "acceptance_note": "3 strip diterima dengan kondisi baik",
-            "storage_location": "RAK-A-01",
-            "rejection_details": [
-                {
-                    "qty_rejected": 2,
-                    "reason": "PACKAGING_DAMAGE",
-                    "description": "Kemasan strip sedikit rusak di bagian seal",
-                    "severity": "MINOR",
-                    "action_requested": "REPLACEMENT"
-                }
-            ]
-        }
-    ],
-    "discrepancy_report": {
-        "total_items_expected": 5,
-        "total_items_accepted": 3,
-        "total_items_rejected": 2,
-        "rejection_rate": 40.0,
-        "impact_assessment": "MINOR",
-        "resolution_request": {
-            "action_needed": "SEND_REPLACEMENT_FOR_REJECTED",
-            "quantity_needed": 2,
-            "urgency": "NORMAL",
-            "special_instructions": "Pastikan kemasan dalam kondisi sempurna"
-        }
-    },
-    "photos_evidence": [
-        {
-            "type": "DAMAGED_PACKAGING",
-            "filename": "damaged_replacement_001.jpg",
-            "file_base64": "/9j/4AAQSkZJRgABAQEAeAB4AAD/2wBDAAEBAQEBAQEBAQEBAQEBAQEBAQEBAQ...",
-            "description": "Foto kemasan yang rusak pada replacement items"
-        }
-    ]
-}
+```http
+Authorization: Bearer {api_token}
+X-Distributor-Code: PBF_DIST_001
+X-Request-ID: {unique_request_id}
 ```
 
-#### 4. Track Fulfillment Status
-
-**Endpoint**: `GET /api/balimed/return-fulfillments/{fulfillment_id}/status`
-**Direction**: Balimed internal use
-
-**Response:**
+**Response yang Akan Diterima PBF:**
 
 ```json
 {
     "status": "success",
-    "data": {
-        "fulfillment_id": "RFUL-2024-001",
-        "current_status": "COMPLETED",
-        "return_reference": "RTN/24/12/0001/DENPSR",
-        "distributor_return_id": "DRTN-2024-001",
-        "fulfillment_timeline": [
-            {
-                "status": "PLANNED",
-                "timestamp": "2024-12-23T16:00:00+07:00",
-                "note": "Replacement planned by distributor"
-            },
-            {
-                "status": "PREPARED",
-                "timestamp": "2024-12-24T10:00:00+07:00",
-                "note": "Items prepared and QA checked"
-            },
-            {
-                "status": "DISPATCHED",
-                "timestamp": "2024-12-25T11:00:00+07:00",
-                "note": "Items dispatched for delivery"
-            },
-            {
-                "status": "IN_TRANSIT",
-                "timestamp": "2024-12-25T12:00:00+07:00",
-                "note": "In transit to hospital"
-            },
-            {
-                "status": "DELIVERED",
-                "timestamp": "2024-12-25T14:45:00+07:00",
-                "note": "Delivered to hospital"
-            },
-            {
-                "status": "RECEIVED",
-                "timestamp": "2024-12-25T15:00:00+07:00",
-                "note": "Received and verified by pharmacist"
-            },
-            {
-                "status": "COMPLETED",
-                "timestamp": "2024-12-25T15:20:00+07:00",
-                "note": "Fulfillment completed successfully"
-            }
-        ],
-        "fulfillment_summary": {
-            "total_items_planned": 5,
-            "total_items_delivered": 5,
-            "total_items_accepted": 5,
-            "fulfillment_rate": 100.0,
-            "quality_score": 100.0,
-            "delivery_time": "On Time",
-            "customer_satisfaction": "Excellent"
+    "replacement_id": "RPL/BALIMED/24/001",
+    "nomor_replacement_pbf": "RPL/PBF/24/001",
+    "current_status": "CONFIRMED",
+    "status_history": [
+        {
+            "status": "PENDING_RECEIPT",
+            "timestamp": "2024-12-25T09:05:00+07:00",
+            "pic": "System"
         },
-        "return_closure": {
-            "original_return_closed": true,
-            "all_items_fulfilled": true,
-            "case_closure_date": "2024-12-25T15:20:00+07:00",
-            "final_status": "SUCCESSFULLY_RESOLVED"
+        {
+            "status": "IN_TRANSIT",
+            "timestamp": "2024-12-25T10:00:00+07:00",
+            "pic": "Driver"
+        },
+        {
+            "status": "DELIVERED",
+            "timestamp": "2024-12-25T14:30:00+07:00",
+            "pic": "Driver"
+        },
+        {
+            "status": "CONFIRMED",
+            "timestamp": "2024-12-25T15:30:00+07:00",
+            "pic": "Apt. Made Sari"
         }
-    }
+    ],
+    "estimated_completion": "2024-12-25T17:00:00+07:00",
+    "last_updated": "2024-12-25T15:30:00+07:00"
 }
 ```
 
-#### 5. Handle Exchange (Different Item) Fulfillment
+---
 
-**Endpoint**: `POST /api/balimed/return-fulfillments/exchange`
-**Direction**: Distributor → Balimed
+## Database yang Harus Disiapkan PBF
 
-**Request Payload:**
+### 1. Table Master Replacement
 
+```sql
+CREATE TABLE pbf_replacements (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    nomor_replacement VARCHAR(50) UNIQUE NOT NULL,
+    return_id BIGINT REFERENCES pbf_returns(id),
+    retur_reference VARCHAR(50) NOT NULL,
+    nomor_retur_balimed VARCHAR(50) NOT NULL,
+    credit_note_reference VARCHAR(50),
+    tanggal_replacement DATE NOT NULL,
+    jenis_replacement ENUM('PRODUCT_REPLACEMENT', 'CREDIT_COMPENSATION', 'UPGRADE_REPLACEMENT') NOT NULL,
+    nomor_faktur_replacement VARCHAR(50),
+    tanggal_faktur DATE,
+    metode_pengiriman ENUM('DELIVERY', 'PICKUP', 'COURIER') NOT NULL,
+    biaya_pengiriman DECIMAL(10,2) DEFAULT 0,
+    status_replacement ENUM('PREPARED', 'SENT', 'DELIVERED', 'CONFIRMED', 'COMPLETED', 'REJECTED') DEFAULT 'PREPARED',
+    penerima VARCHAR(100),
+    alamat_pengiriman TEXT,
+    nama_driver VARCHAR(100),
+    nomor_kendaraan VARCHAR(20),
+    estimasi_tiba TIMESTAMP,
+    tanggal_aktual_tiba TIMESTAMP NULL,
+    satisfaction_rating INT NULL,
+    feedback TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+```
+
+### 2. Table Detail Replacement
+
+```sql
+CREATE TABLE pbf_replacement_details (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    replacement_id BIGINT REFERENCES pbf_replacements(id),
+    line_number INT NOT NULL,
+    retur_line_reference INT NOT NULL,
+    kode_barang_original VARCHAR(50) NOT NULL,
+    nama_barang_original VARCHAR(200) NOT NULL,
+    kode_barang_replacement VARCHAR(50) NOT NULL,
+    nama_barang_replacement VARCHAR(200) NOT NULL,
+    satuan VARCHAR(20) NOT NULL,
+    qty_retur INT NOT NULL,
+    qty_replacement INT NOT NULL,
+    qty_diterima INT DEFAULT 0,
+    harga_satuan DECIMAL(10,2) NOT NULL,
+    subtotal DECIMAL(15,2) NOT NULL,
+    no_batch_original VARCHAR(50),
+    no_batch_replacement VARCHAR(50) NOT NULL,
+    expired_original DATE,
+    expired_replacement DATE NOT NULL,
+    jenis_replacement ENUM('SAME_PRODUCT', 'EQUIVALENT_PRODUCT', 'UPGRADE_PRODUCT', 'SUBSTITUTE_PRODUCT') NOT NULL,
+    kondisi_barang ENUM('BARU', 'REFURBISHED', 'DEMO') DEFAULT 'BARU',
+    status_item ENUM('SENT', 'ACCEPTED', 'REJECTED', 'PARTIAL') DEFAULT 'SENT',
+    alasan_replacement VARCHAR(500),
+    catatan_item TEXT
+);
+```
+
+### 3. Table Status Tracking
+
+```sql
+CREATE TABLE pbf_replacement_status_history (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    replacement_id BIGINT REFERENCES pbf_replacements(id),
+    status_dari ENUM('PREPARED', 'SENT', 'DELIVERED', 'CONFIRMED', 'COMPLETED', 'REJECTED'),
+    status_ke ENUM('PREPARED', 'SENT', 'DELIVERED', 'CONFIRMED', 'COMPLETED', 'REJECTED') NOT NULL,
+    timestamp_perubahan TIMESTAMP NOT NULL,
+    pic VARCHAR(100),
+    catatan TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+### 4. Table Dokumen Replacement
+
+```sql
+CREATE TABLE pbf_replacement_documents (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    replacement_id BIGINT REFERENCES pbf_replacements(id),
+    jenis_dokumen ENUM('DELIVERY_NOTE', 'REPLACEMENT_CERTIFICATE', 'QUALITY_CERTIFICATE', 'INVOICE_REPLACEMENT') NOT NULL,
+    nama_file VARCHAR(200) NOT NULL,
+    url_download VARCHAR(500) NOT NULL,
+    hash_file VARCHAR(100),
+    ukuran_file BIGINT,
+    uploaded_by VARCHAR(100),
+    uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+---
+
+## Business Rules yang Harus Diimplementasi PBF
+
+### 1. Replacement Preparation
+- **WAJIB** prepare replacement dalam 48 jam setelah retur disetujui
+- **WAJIB** pastikan kualitas produk replacement lebih baik/sama
+- **WAJIB** batch number dan expired date lebih baik dari yang diretur
+- **WAJIB** dokumentasi lengkap untuk audit trail
+
+### 2. Quality Assurance
+- **WAJIB** QA check untuk semua replacement products
+- **WAJIB** certificate of quality untuk pharmaceutical products
+- **WAJIB** cold chain maintenance untuk temperature-sensitive products
+- **WAJIB** packaging sesuai standar farmasi
+
+### 3. Delivery Management
+- **WAJIB** notifikasi delivery schedule ke Balimed H-1
+- **WAJIB** real-time tracking untuk delivery status
+- **WAJIB** proof of delivery dengan signature dan foto
+- **WAJIB** escalation process jika delivery tertunda
+
+### 4. Case Closure
+- **WAJIB** konfirmasi case closure dengan customer satisfaction
+- **WAJIB** dokumentasi lessons learned untuk improvement
+- **WAJIB** update internal database untuk future reference
+
+### 5. Error Handling
 ```json
 {
-    "header": {
-        "nomor_receiving_retur": "RRD/24/12/0002/DENPSR",
-        "fulfillment_type": "EXCHANGE",
-        "tanggal": "2024-12-26",
-        "return_reference": "RTN/24/12/0002/DENPSR",
-        "distributor_return_id": "DRTN-2024-002",
-        "exchange_reason": "PRODUCT_UPGRADE",
-        "note": "Tukar dengan produk yang lebih baik sesuai permintaan"
+    "status": "error",
+    "error_code": "REPLACEMENT_QUALITY_ISSUE",
+    "message": "Produk replacement tidak memenuhi standar kualitas",
+    "details": {
+        "product_code": "BRG001",
+        "batch_number": "PCM241101",
+        "issue": "Expired date kurang dari 12 bulan"
     },
-    "exchange_details": [
-        {
-            "line_number": 1,
-            "original_item": {
-                "barang_id": 125,
-                "kode_barang": "BRG003",
-                "nama_barang": "Amoxicillin 250mg",
-                "qty_returned": 20,
-                "harga_hna": 2000.0,
-                "total_value": 40000.0
-            },
-            "exchange_item": {
-                "barang_id": 126,
-                "kode_barang": "BRG004",
-                "nama_barang": "Amoxicillin 500mg",
-                "qty_given": 10,
-                "harga_hna": 3500.0,
-                "total_value": 35000.0,
-                "no_batch": "AMX500-241201",
-                "ed": "2027-12-01"
-            },
-            "value_adjustment": {
-                "original_value": 40000.0,
-                "exchange_value": 35000.0,
-                "difference": -5000.0,
-                "adjustment_type": "CREDIT_BALANCE",
-                "credit_note_needed": true
-            }
-        }
-    ]
+    "timestamp": "2024-12-25T09:00:00+07:00"
 }
 ```
 
-### Status Codes
+---
 
-#### Fulfillment Status
+## Workflow Replacement yang Harus Diimplementasi
 
--   `PLANNED` - Direncanakan
--   `PREPARED` - Disiapkan
--   `DISPATCHED` - Dikirim
--   `IN_TRANSIT` - Dalam Perjalanan
--   `DELIVERED` - Sampai di Tujuan
--   `RECEIVED` - Diterima
--   `VERIFIED` - Diverifikasi
--   `COMPLETED` - Selesai
--   `PARTIAL_FULFILLED` - Sebagian Terpenuhi
--   `REJECTED` - Ditolak
--   `CANCELLED` - Dibatalkan
+### 1. Preparation Phase
+```python
+def prepare_replacement(approved_return):
+    # Validate replacement criteria
+    if not validate_replacement_eligibility(approved_return):
+        return reject_replacement("Tidak memenuhi syarat replacement")
 
-#### Quality Status
+    # Select best replacement products
+    replacement_products = select_optimal_replacement(approved_return.items)
 
--   `EXCELLENT` - Sangat Baik
--   `GOOD` - Baik
--   `ACCEPTABLE` - Dapat Diterima
--   `MINOR_ISSUES` - Ada Masalah Kecil
--   `MAJOR_ISSUES` - Ada Masalah Besar
--   `REJECTED` - Ditolak
+    # Prepare QA documentation
+    qa_docs = generate_qa_certificates(replacement_products)
 
-### Business Rules
+    # Schedule delivery
+    delivery_schedule = schedule_delivery(approved_return.address)
 
-1. **Receiving Retur Number Format**: `RRD/YY/MM/NNNN/LOCATION`
+    return prepare_replacement_package(replacement_products, qa_docs, delivery_schedule)
+```
 
-2. **Validation Rules**:
+### 2. Quality Control
+- **WAJIB** visual inspection untuk semua products
+- **WAJIB** batch testing untuk pharmaceutical compliance
+- **WAJIB** packaging inspection sesuai standard
+- **WAJIB** documentation review untuk completeness
 
-    - `nomor` required, unique
-    - `return_reference` required, must exist and be approved
-    - `fulfillment_type` required, must be valid type
-    - `qty_ff` required, integer, min: 1
-    - `no_batch` required for pharmaceutical items
-    - `ed` required, must be future date and longer than original
+### 3. Delivery Execution
+- **WAJIB** pre-delivery customer notification
+- **WAJIB** real-time GPS tracking untuk delivery vehicle
+- **WAJIB** temperature monitoring untuk cold chain products
+- **WAJIB** delivery confirmation dengan digital signature
 
-3. **Business Logic**:
+---
 
-    - Fulfillment hanya dapat dibuat untuk approved returns
-    - Replacement items harus memiliki spesifikasi yang sama atau lebih baik
-    - Batch baru harus memiliki expiry date yang lebih panjang
-    - Stock otomatis bertambah setelah confirmation
-    - Original return case otomatis closed setelah fulfillment completed
+## Integration Testing Checklist untuk PBF
 
-4. **Quality Requirements**:
-    - Replacement items harus dalam kondisi perfect
-    - Batch tracking mandatory untuk pharmaceutical items
-    - Temperature-controlled items need special handling
-    - QA certificate required for certain drug categories
+### Phase 1: Replacement Process
+- [ ] Implement replacement preparation workflow
+- [ ] Implement quality assurance process
+- [ ] Test notification system ke Balimed
+- [ ] Test document generation dan management
 
-### Integration Points
+### Phase 2: Delivery Management
+- [ ] Implement delivery scheduling system
+- [ ] Test real-time tracking integration
+- [ ] Implement delivery confirmation process
+- [ ] Test escalation procedures
 
-1. **With Return System**:
+### Phase 3: Case Closure
+- [ ] Implement confirmation handling dari Balimed
+- [ ] Test satisfaction rating dan feedback system
+- [ ] Implement case closure automation
+- [ ] Test reporting dan analytics
 
-    - Link to original return request
-    - Update return status to fulfilled
-    - Close return case upon completion
+### Phase 4: Quality & Compliance
+- [ ] Setup quality assurance procedures
+- [ ] Implement pharmaceutical compliance checks
+- [ ] Test cold chain monitoring integration
+- [ ] Setup audit trail dan documentation
 
-2. **With Stock Management**:
+---
 
-    - Add replacement stock to inventory
-    - Update batch information
-    - Maintain FIFO/FEFO order
-    - Update cost calculations
-
-3. **With Quality Assurance**:
-    - Verify QA certificates
-    - Temperature monitoring for cold chain
-    - Expiry date validation
-    - Packaging integrity checks
-
-### Fulfillment Workflow
-
-1. **Distributor Plans Fulfillment**:
-
-    - Review approved return
-    - Plan replacement or exchange
-    - Prepare items with QA check
-    - Schedule delivery
-
-2. **Delivery Notification**:
-
-    - Send delivery notification via API
-    - Include tracking and timing
-    - Provide QA documentation
-
-3. **Hospital Receives**:
-
-    - Physical receipt of items
-    - Quality verification
-    - Stock registration
-    - Confirmation to distributor
-
-4. **Case Closure**:
-    - Update return status
-    - Close fulfillment case
-    - Update customer satisfaction metrics
-
-### Error Handling
-
-**Common Error Codes:**
-
--   `VALIDATION_ERROR` - Input validation failed
--   `RETURN_NOT_ELIGIBLE` - Return not eligible for fulfillment
--   `QUALITY_FAILED` - Quality check failed
--   `BATCH_INVALID` - Batch information invalid
--   `DELIVERY_FAILED` - Delivery could not be completed
--   `PARTIAL_FULFILLMENT` - Only partial fulfillment possible
--   `SYSTEM_ERROR` - Internal server error
-
-### Performance Metrics
-
-**KPIs to Track**:
-
--   Fulfillment completion rate
--   Average fulfillment time
--   Quality acceptance rate
--   Customer satisfaction score
--   Cost per fulfillment
--   Repeat return rate
-
-### Special Handling Cases
-
-1. **Cold Chain Products**:
-
-    - Temperature monitoring required
-    - Special packaging
-    - Faster delivery timeline
-    - Additional QA requirements
-
-2. **Controlled Substances**:
-
-    - Additional documentation
-    - Authorized personnel only
-    - Special tracking requirements
-    - Regulatory compliance
-
-3. **High-Value Items**:
-    - Insurance requirements
-    - Signature confirmation
-    - Photo documentation
-    - Enhanced security measures
+_API ini melengkapi siklus return management dengan replacement process yang berkualitas, memastikan customer satisfaction dan compliance dengan standar farmasi._

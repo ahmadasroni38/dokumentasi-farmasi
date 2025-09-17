@@ -1,589 +1,407 @@
 # Faktur Retur API Specification
 
-## Integrasi Sistem Farmasi Balimed dengan Distributor PT. PBF
+## Requirements untuk Programmer PT. PBF
 
-### Database Structure Analysis
+### Yang Harus Disiapkan oleh PBF
 
-**Master Table**: `m_farmasi_retur_d_faktur`
-**Detail Table**: `t_farmasi_faktur_retur_d`
+API ini menjelaskan struktur data dan endpoint yang **WAJIB disiapkan oleh programmer PT. PBF** untuk mengirim credit note dan menerima verifikasi dari Sistem Farmasi Balimed.
 
-### Master Faktur Retur Fields
+---
 
-```php
-// Model: FakturReturD (m_farmasi_retur_d_faktur)
-protected $fillable = [
-    'tanggal',              // Date - Credit note date
-    'nomor',                // String - Credit note number (auto-generated)
-    'subunit_id',           // Integer - Hospital subunit ID
-    'distributor_id',       // Integer - Foreign key to m_farmasi_distributor
-    'note',                 // Text - Credit note notes
-    'diskon',               // Decimal - Credit note discount percentage
-    'ppn',                  // Decimal - Tax percentage (PPN)
-    'status_proof_kode',    // String - Approval status code
-    'created_by',           // String - User ID who created
-    'updated_by',           // String - User ID who updated
-    'subunit_owner_id',     // Integer - Hospital subunit owner
-    'jdoc_kode',            // String - Document journal code
-    'kode_doc',             // String - Document code
-];
-```
+## Endpoints yang WAJIB Dibuat dan Dipanggil PBF
 
-### Detail Faktur Retur Fields
+### 1. Kirim Credit Note ke Balimed
 
-```php
-// Model: TFakturReturD (t_farmasi_faktur_retur_d)
-protected $fillable = [
-    'faktur_retur_id',  // Integer - Foreign key to m_farmasi_retur_d_faktur
-    'barang_id',        // Integer - Foreign key to m_farmasi_barang
-    'satuan_kode',      // String - Unit code (strip, box, bottle, etc)
-    'qty',              // Integer - Quantity credited
-    'harga_hna',        // Decimal - Unit price (HNA = Harga Netto Apotek)
-    'diskon',           // Decimal - Item discount percentage
-    'batchno',          // String - Batch number
-    'created_by',       // String - User ID
-    'updated_by',       // String - User ID
-];
-```
+**Endpoint yang WAJIB Dipanggil PBF**: `POST /api/balimed/credit-notes`
+**Direction**: **PBF (mengirim)** → Balimed
+**Trigger**: Setelah retur disetujui dan credit note dibuat
 
-### Credit Note Types
-
-```php
-'RETURN_CREDIT'     => 'Credit Note untuk Retur',
-'PRICE_ADJUSTMENT'  => 'Credit Note untuk Penyesuaian Harga',
-'QUANTITY_ADJUSTMENT' => 'Credit Note untuk Penyesuaian Quantity',
-'PROMOTIONAL_CREDIT' => 'Credit Note untuk Program Promosi',
-'GOODWILL_CREDIT'   => 'Credit Note Goodwill',
-'OTHER'             => 'Credit Note Lainnya'
-```
-
-### API Endpoints
-
-#### 1. Receive Credit Note from Distributor
-
-**Endpoint**: `POST /api/balimed/credit-notes`
-**Direction**: Distributor → Balimed
-**Content-Type**: `application/json`
-
-**Headers:**
+**Headers yang WAJIB Dikirim PBF:**
 
 ```http
-Authorization: Bearer {api_token}
+Authorization: Bearer {api_token}        # Token yang diberikan Balimed
 Content-Type: application/json
-X-Distributor-Code: DIST001
-X-Request-ID: {unique_request_id}
+X-Distributor-Code: PBF_DIST_001        # Kode distributor PBF
+X-Request-ID: {unique_request_id}       # ID unik untuk tracking
 ```
 
-**Request Payload:**
+**Payload yang WAJIB Dikirim PBF:**
 
 ```json
 {
     "header": {
-        "nomor_credit_note": "CN/DIST001/24/001",
-        "tanggal": "2024-12-22",
-        "credit_note_type": "RETURN_CREDIT",
-        "subunit_id": 1,
-        "subunit_code": "FARM_IGD",
-        "distributor_id": 1,
-        "distributor_code": "DIST001",
+        "nomor_credit_note": "CN/PBF001/24/001",
+        "tanggal_credit_note": "2024-12-22",
+        "retur_reference": "RTN/PBF/24/001",
+        "nomor_retur_balimed": "RTN/24/12/0001/DENPSR",
+        "nomor_faktur_original": "FK/PBF001/2024/001",
+        "distributor_code": "PBF_DIST_001",
         "distributor_name": "PT. PBF Medika",
-        "return_reference": "RTN/24/12/0001/DENPSR",
-        "distributor_return_id": "DRTN-2024-001",
-        "original_invoice": "FK/DIST001/2024/001",
-        "diskon": 5.5,
-        "ppn": 11.0,
-        "note": "Credit note untuk retur barang rusak sesuai RTN/24/12/0001/DENPSR",
-        "issued_by": "Budi Santoso",
-        "issued_by_position": "Finance Manager",
-        "issued_date": "2024-12-22T10:00:00+07:00",
-        "effective_date": "2024-12-22",
-        "payment_impact": {
-            "apply_to_current_invoice": false,
-            "apply_to_next_payment": true,
-            "create_refund": false
-        }
+        "hospital_code": "BALIMED_DENPASAR",
+        "jenis_credit": "RETURN_CREDIT",
+        "alasan_credit": "Pengembalian barang sesuai retur yang disetujui",
+        "total_credit": 16000.0,
+        "ppn_credit": 1760.0,
+        "net_credit": 17760.0,
+        "metode_credit": "ADJUSTMENT",
+        "tempo_hari": 30,
+        "tanggal_jatuh_tempo": "2025-01-21",
+        "pic_finance": "Finance Manager PBF",
+        "telp_pic": "021-1234567",
+        "catatan": "Credit note untuk retur barang damaged",
+        "created_by": "SYS_PBF",
+        "created_date": "2024-12-22T10:00:00+07:00"
     },
-    "details": [
+    "detail_credit": [
         {
             "line_number": 1,
-            "barang_id": 123,
             "kode_barang": "BRG001",
             "nama_barang": "Paracetamol 500mg",
-            "nama_generik": "Parasetamol",
-            "satuan_kode": "STRIP",
-            "batchno": "PCM240801",
-            "qty": 5,
-            "harga_hna": 2500.0,
-            "diskon": 5.0,
-            "sub_total": 11875.0,
-            "credit_reason": "Barang rusak/cacat",
-            "return_line_reference": 1,
-            "keterangan": "Credit untuk 5 strip paracetamol yang rusak"
+            "satuan": "STRIP",
+            "qty_credit": 5,
+            "harga_satuan": 2500.0,
+            "disc_persen": 5.0,
+            "harga_setelah_disc": 2375.0,
+            "subtotal": 11875.0,
+            "ppn_persen": 11.0,
+            "ppn_nominal": 1306.25,
+            "total_line": 13181.25,
+            "no_batch": "PCM240801",
+            "tanggal_expired": "2026-08-01",
+            "alasan_credit": "Barang damaged",
+            "referensi_retur_line": 1
         },
         {
             "line_number": 2,
-            "barang_id": 124,
             "kode_barang": "BRG002",
             "nama_barang": "Amoxicillin 500mg",
-            "nama_generik": "Amoksisilin",
-            "satuan_kode": "STRIP",
-            "batchno": "AMX240701",
-            "qty": 10,
-            "harga_hna": 3500.0,
-            "diskon": 3.0,
-            "sub_total": 33950.0,
-            "credit_reason": "Mendekati expired date",
-            "return_line_reference": 2,
-            "keterangan": "Credit untuk 10 strip amoxicillin mendekati ED"
+            "satuan": "STRIP",
+            "qty_credit": 1,
+            "harga_satuan": 3500.0,
+            "disc_persen": 5.0,
+            "harga_setelah_disc": 3325.0,
+            "subtotal": 3325.0,
+            "ppn_persen": 11.0,
+            "ppn_nominal": 365.75,
+            "total_line": 3690.75,
+            "no_batch": "AMX240901",
+            "tanggal_expired": "2026-09-01",
+            "alasan_credit": "Near expired partial credit",
+            "referensi_retur_line": 2
         }
     ],
-    "summary": {
-        "total_items": 2,
-        "total_qty": 15,
-        "subtotal": 45825.0,
-        "discount_amount": 2291.25,
-        "taxable_amount": 43533.75,
-        "tax_amount": 4789.71,
-        "credit_amount": 48323.46
-    },
-    "accounting_info": {
-        "gl_account": "4210001",
-        "gl_description": "Sales Return",
-        "cost_center": "CC_PHARMA",
-        "posting_date": "2024-12-22",
-        "fiscal_period": "2024-12",
-        "reference_document": "RTN/24/12/0001/DENPSR"
-    },
-    "attachments": [
+    "dokumen_pendukung": [
         {
-            "type": "CREDIT_NOTE_DOCUMENT",
-            "filename": "credit_note_CN_DIST001_24_001.pdf",
-            "file_base64": "JVBERi0xLjQKJeLjz9MKMSAwIG9iago8PAovVHlwZSAvQ2F0YWxvZwo...",
-            "description": "Original credit note document"
+            "jenis_dokumen": "CREDIT_NOTE_ORIGINAL",
+            "nama_file": "CN_PBF001_24_001.pdf",
+            "url_download": "https://pbf.com/documents/CN_PBF001_24_001.pdf",
+            "hash_file": "a1b2c3d4e5f6",
+            "ukuran_file": 524288
+        },
+        {
+            "jenis_dokumen": "RETURN_EVIDENCE",
+            "nama_file": "return_evidence.pdf",
+            "url_download": "https://pbf.com/documents/return_evidence.pdf",
+            "hash_file": "f6e5d4c3b2a1",
+            "ukuran_file": 1048576
         }
     ]
 }
 ```
 
-**Success Response (200):**
+**Response yang Akan Diterima PBF dari Balimed:**
 
 ```json
 {
     "status": "success",
-    "message": "Credit note berhasil diterima dan diproses",
-    "data": {
-        "nomor_faktur_retur": "FR/24/12/0001/DENPSR",
-        "credit_note_number": "CN/DIST001/24/001",
-        "status": "RECEIVED",
-        "received_date": "2024-12-22T10:15:00+07:00",
-        "processing_status": "PENDING_VERIFICATION",
-        "assigned_finance_staff": "Ni Made Dewi",
-        "estimated_verification_time": "1-2 jam",
-        "credit_amount": 48323.46,
-        "next_actions": ["Verifikasi oleh tim finance", "Posting ke accounting system", "Adjustment pada payment terms"]
-    }
+    "message": "Credit note berhasil diterima",
+    "credit_note_id": "CN/BALIMED/24/001",
+    "nomor_credit_pbf": "CN/PBF001/24/001",
+    "status_verifikasi": "PENDING_VERIFICATION",
+    "estimasi_verifikasi": "2024-12-24T17:00:00+07:00",
+    "pic_verifikasi": "Finance Balimed",
+    "received_at": "2024-12-22T10:05:00+07:00"
 }
 ```
 
-#### 2. Send Credit Note Verification to Distributor
+### 2. Terima Verifikasi Credit Note dari Balimed
 
-**Endpoint**: `POST /api/distributor/credit-notes/{credit_note_number}/verification`
-**Direction**: Balimed → Distributor
+**Endpoint yang WAJIB Dibuat PBF**: `POST /api/distributor/credit-notes/{credit_note_id}/verification`
+**Direction**: Balimed → **PBF (menerima)**
 
-**Request Payload:**
+**Headers yang WAJIB Diterima dan Divalidasi PBF:**
+
+```http
+Authorization: Bearer {api_token}
+Content-Type: application/json
+X-Hospital-Code: BALIMED_DENPASAR
+X-Request-ID: {unique_request_id}
+```
+
+**Payload yang Akan Diterima PBF dari Balimed:**
 
 ```json
 {
-    "credit_note_number": "CN/DIST001/24/001",
-    "nomor_faktur_retur": "FR/24/12/0001/DENPSR",
-    "verification_date": "2024-12-22T14:00:00+07:00",
-    "verification_status": "VERIFIED",
-    "verified_by": "FIN001",
-    "verified_by_name": "Ni Made Dewi",
-    "verified_by_position": "Finance Staff",
-    "verification_note": "Credit note telah diverifikasi dan sesuai dengan return request",
-    "accounting_status": "POSTED",
-    "posting_date": "2024-12-22T14:30:00+07:00",
-    "posting_reference": "JV/2024/12/0145",
-    "items_verification": [
+    "credit_note_id": "CN/BALIMED/24/001",
+    "nomor_credit_pbf": "CN/PBF001/24/001",
+    "status_verifikasi": "VERIFIED",
+    "tanggal_verifikasi": "2024-12-23T14:00:00+07:00",
+    "pic_verifikasi": "Apt. Finance Manager",
+    "hasil_verifikasi": "APPROVED",
+    "catatan_verifikasi": "Credit note sesuai dengan retur yang disetujui",
+    "detail_verifikasi": [
         {
             "line_number": 1,
             "kode_barang": "BRG001",
-            "batchno": "PCM240801",
+            "status_line": "VERIFIED",
             "qty_verified": 5,
-            "amount_verified": 11875.0,
-            "verification_result": "APPROVED",
-            "keterangan": "Sesuai dengan return request dan stock records"
+            "nilai_verified": 13181.25,
+            "catatan_line": "Sesuai dengan retur"
         },
         {
             "line_number": 2,
             "kode_barang": "BRG002",
-            "batchno": "AMX240701",
-            "qty_verified": 10,
-            "amount_verified": 33950.0,
-            "verification_result": "APPROVED",
-            "keterangan": "Sesuai dengan return request dan stock records"
+            "status_line": "VERIFIED",
+            "qty_verified": 1,
+            "nilai_verified": 3690.75,
+            "catatan_line": "Partial quantity sesuai approval"
         }
     ],
-    "financial_impact": {
-        "accounts_payable_adjustment": -48323.46,
-        "cost_of_goods_adjustment": -45825.0,
-        "tax_adjustment": -4789.71,
-        "net_impact": -48323.46
-    },
-    "payment_adjustment": {
-        "apply_to_invoice": "FK/DIST001/2024/002",
-        "new_payment_amount": 1234567.89,
-        "adjustment_amount": -48323.46,
-        "new_due_date": "2025-01-15"
-    }
+    "total_verified": 16872.0,
+    "adjustment_amount": 0.0,
+    "final_credit_amount": 16872.0,
+    "next_action": "Akan diproses ke finance untuk payment adjustment"
 }
 ```
 
-**Success Response (200):**
+**Response yang WAJIB Diberikan PBF:**
 
 ```json
 {
     "status": "success",
     "message": "Verifikasi credit note berhasil diterima",
-    "data": {
-        "credit_note_number": "CN/DIST001/24/001",
-        "verification_status": "ACCEPTED",
-        "processed_date": "2024-12-22T14:35:00+07:00",
-        "payment_adjustment_applied": true,
-        "next_invoice_impact": -48323.46
-    }
+    "credit_note_id": "CN/PBF001/24/001",
+    "status_internal": "VERIFIED_BY_CUSTOMER",
+    "processed_at": "2024-12-23T14:05:00+07:00",
+    "next_action": "Credit akan diaplikasikan ke outstanding balance"
 }
 ```
 
-#### 3. Handle Credit Note Disputes
+### 3. Terima Dispute Credit Note dari Balimed
 
-**Endpoint**: `POST /api/distributor/credit-notes/{credit_note_number}/dispute`
-**Direction**: Balimed → Distributor
+**Endpoint yang WAJIB Dibuat PBF**: `POST /api/distributor/credit-notes/{credit_note_id}/dispute`
+**Direction**: Balimed → **PBF (menerima)**
 
-**Request Payload:**
+**Payload yang Akan Diterima PBF jika Ada Dispute:**
 
 ```json
 {
-    "credit_note_number": "CN/DIST001/24/001",
-    "nomor_faktur_retur": "FR/24/12/0001/DENPSR",
-    "dispute_date": "2024-12-22T14:00:00+07:00",
-    "disputed_by": "FIN001",
-    "disputed_by_name": "Ni Made Dewi",
-    "dispute_reason": "AMOUNT_MISMATCH",
-    "dispute_details": "Jumlah credit tidak sesuai dengan return yang disetujui",
-    "disputed_items": [
+    "credit_note_id": "CN/BALIMED/24/001",
+    "nomor_credit_pbf": "CN/PBF001/24/001",
+    "status_dispute": "DISPUTED",
+    "tanggal_dispute": "2024-12-23T14:00:00+07:00",
+    "pic_dispute": "Finance Manager Balimed",
+    "jenis_dispute": "CALCULATION_ERROR",
+    "deskripsi_dispute": "Perhitungan PPN tidak sesuai",
+    "detail_dispute": [
         {
             "line_number": 1,
             "kode_barang": "BRG001",
-            "batchno": "PCM240801",
-            "credit_note_qty": 5,
-            "expected_qty": 5,
-            "credit_note_amount": 11875.0,
-            "expected_amount": 11875.0,
-            "dispute_type": "NO_DISPUTE",
-            "keterangan": "Sesuai"
+            "jenis_masalah": "PPN_CALCULATION",
+            "nilai_pbf": 1306.25,
+            "nilai_balimed": 1306.25,
+            "selisih": 0.0,
+            "catatan": "Actually this line is correct"
         },
         {
             "line_number": 2,
             "kode_barang": "BRG002",
-            "batchno": "AMX240701",
-            "credit_note_qty": 10,
-            "expected_qty": 8,
-            "credit_note_amount": 33950.0,
-            "expected_amount": 27160.0,
-            "dispute_type": "QUANTITY_EXCESS",
-            "keterangan": "Credit note qty lebih besar dari return yang disetujui"
+            "jenis_masalah": "QUANTITY_MISMATCH",
+            "qty_pbf": 1,
+            "qty_balimed": 0,
+            "selisih": 1,
+            "catatan": "Item ini tidak disetujui untuk retur"
         }
     ],
-    "resolution_request": {
-        "requested_action": "QUANTITY_ADJUSTMENT",
-        "requested_credit_amount": 38035.0,
-        "adjustment_amount": -10288.0,
-        "supporting_documents": ["Return approval document", "Stock movement records"]
-    },
-    "contact_info": {
-        "contact_person": "Ni Made Dewi",
-        "contact_phone": "0361-224466",
-        "contact_email": "finance@balimed.com",
-        "preferred_contact_method": "email"
-    }
+    "dokumen_pendukung": [
+        {
+            "nama_file": "dispute_evidence.pdf",
+            "url_download": "https://balimed.com/documents/dispute_evidence.pdf"
+        }
+    ]
 }
 ```
 
-#### 4. Receive Revised Credit Note
-
-**Endpoint**: `PUT /api/balimed/credit-notes/{credit_note_number}`
-**Direction**: Distributor → Balimed
-
-**Request Payload:**
-
-```json
-{
-    "credit_note_number": "CN/DIST001/24/001-REV1",
-    "original_credit_note": "CN/DIST001/24/001",
-    "revision_reason": "Dispute resolution - quantity adjustment",
-    "revision_date": "2024-12-23T09:00:00+07:00",
-    "header": {
-        "tanggal": "2024-12-23",
-        "credit_note_type": "RETURN_CREDIT",
-        "subunit_id": 1,
-        "distributor_id": 1,
-        "return_reference": "RTN/24/12/0001/DENPSR",
-        "note": "Credit note revisi untuk penyesuaian quantity sesuai dispute",
-        "revised_by": "Budi Santoso",
-        "revision_approved_by": "Manager Finance"
-    },
-    "details": [
-        {
-            "line_number": 1,
-            "barang_id": 123,
-            "kode_barang": "BRG001",
-            "satuan_kode": "STRIP",
-            "batchno": "PCM240801",
-            "qty": 5,
-            "harga_hna": 2500.0,
-            "diskon": 5.0,
-            "sub_total": 11875.0,
-            "revision_note": "Tidak ada perubahan"
-        },
-        {
-            "line_number": 2,
-            "barang_id": 124,
-            "kode_barang": "BRG002",
-            "satuan_kode": "STRIP",
-            "batchno": "AMX240701",
-            "qty": 8,
-            "harga_hna": 3500.0,
-            "diskon": 3.0,
-            "sub_total": 27160.0,
-            "revision_note": "Quantity disesuaikan dari 10 menjadi 8 sesuai dispute"
-        }
-    ],
-    "summary": {
-        "total_items": 2,
-        "total_qty": 13,
-        "original_credit_amount": 48323.46,
-        "revised_credit_amount": 38035.46,
-        "adjustment_amount": -10288.0,
-        "subtotal": 39035.0,
-        "discount_amount": 1951.75,
-        "taxable_amount": 37083.25,
-        "tax_amount": 4079.16,
-        "final_credit_amount": 38035.46
-    }
-}
-```
-
-#### 5. Get Credit Note History
-
-**Endpoint**: `GET /api/balimed/credit-notes/{credit_note_number}/history`
-**Direction**: Balimed internal use
-
-**Response:**
+**Response yang WAJIB Diberikan PBF:**
 
 ```json
 {
     "status": "success",
-    "data": {
-        "credit_note_number": "CN/DIST001/24/001",
-        "current_version": "CN/DIST001/24/001-REV1",
-        "status": "VERIFIED",
-        "history": [
-            {
-                "version": "CN/DIST001/24/001",
-                "action": "CREATED",
-                "timestamp": "2024-12-22T10:00:00+07:00",
-                "user": "Distributor System",
-                "amount": 48323.46,
-                "note": "Initial credit note issued"
-            },
-            {
-                "version": "CN/DIST001/24/001",
-                "action": "RECEIVED",
-                "timestamp": "2024-12-22T10:15:00+07:00",
-                "user": "System",
-                "amount": 48323.46,
-                "note": "Credit note received via API"
-            },
-            {
-                "version": "CN/DIST001/24/001",
-                "action": "DISPUTED",
-                "timestamp": "2024-12-22T14:00:00+07:00",
-                "user": "FIN001",
-                "amount": 48323.46,
-                "note": "Disputed due to quantity mismatch"
-            },
-            {
-                "version": "CN/DIST001/24/001-REV1",
-                "action": "REVISED",
-                "timestamp": "2024-12-23T09:00:00+07:00",
-                "user": "Distributor System",
-                "amount": 38035.46,
-                "note": "Revised to resolve dispute"
-            },
-            {
-                "version": "CN/DIST001/24/001-REV1",
-                "action": "VERIFIED",
-                "timestamp": "2024-12-23T11:00:00+07:00",
-                "user": "FIN001",
-                "amount": 38035.46,
-                "note": "Verified and approved for processing"
-            }
-        ],
-        "financial_impact": {
-            "final_credit_amount": 38035.46,
-            "accounts_payable_adjustment": -38035.46,
-            "applied_to_invoices": [
-                {
-                    "invoice_number": "FK/DIST001/2024/002",
-                    "applied_amount": -38035.46,
-                    "new_balance": 962536.54
-                }
-            ]
-        }
-    }
+    "message": "Dispute credit note berhasil diterima",
+    "dispute_id": "DISP/PBF/24/001",
+    "credit_note_id": "CN/PBF001/24/001",
+    "status_penanganan": "UNDER_REVIEW",
+    "estimasi_penyelesaian": "2024-12-25T17:00:00+07:00",
+    "pic_penanganan": "Finance Manager PBF",
+    "telp_pic": "021-1234567",
+    "processed_at": "2024-12-23T14:10:00+07:00"
 }
 ```
 
-### Status Codes
+---
 
-#### Credit Note Status
+## Database yang Harus Disiapkan PBF
 
--   `DRAFT` - Draft (belum dikirim)
--   `ISSUED` - Diterbitkan oleh distributor
--   `RECEIVED` - Diterima oleh sistem Balimed
--   `PENDING_VERIFICATION` - Menunggu verifikasi finance
--   `VERIFIED` - Terverifikasi dan disetujui
--   `DISPUTED` - Ada dispute/sengketa
--   `REVISED` - Sudah direvisi
--   `POSTED` - Sudah diposting ke accounting
--   `CANCELLED` - Dibatalkan
+### 1. Table Master Credit Note
 
-#### Approval Status (status_proof_kode)
+```sql
+CREATE TABLE pbf_credit_notes (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    nomor_credit_note VARCHAR(50) UNIQUE NOT NULL,
+    return_id BIGINT REFERENCES pbf_returns(id),
+    retur_reference VARCHAR(50) NOT NULL,
+    nomor_retur_balimed VARCHAR(50) NOT NULL,
+    nomor_faktur_original VARCHAR(50) NOT NULL,
+    tanggal_credit_note DATE NOT NULL,
+    jenis_credit ENUM('RETURN_CREDIT', 'DAMAGE_CREDIT', 'ADJUSTMENT_CREDIT') NOT NULL,
+    alasan_credit TEXT NOT NULL,
+    total_credit DECIMAL(15,2) NOT NULL,
+    ppn_credit DECIMAL(15,2) NOT NULL,
+    net_credit DECIMAL(15,2) NOT NULL,
+    metode_credit ENUM('ADJUSTMENT', 'REFUND', 'CREDIT_BALANCE') NOT NULL,
+    tempo_hari INT NOT NULL,
+    tanggal_jatuh_tempo DATE NOT NULL,
+    status_credit ENUM('DRAFT', 'SENT', 'VERIFIED', 'DISPUTED', 'RESOLVED', 'APPLIED') DEFAULT 'DRAFT',
+    pic_finance VARCHAR(100),
+    catatan TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+```
 
--   `PENDING` - Menunggu Approval
--   `APPROVED` - Disetujui
--   `REJECTED` - Ditolak
+### 2. Table Detail Credit Note
 
-### Business Rules
+```sql
+CREATE TABLE pbf_credit_note_details (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    credit_note_id BIGINT REFERENCES pbf_credit_notes(id),
+    line_number INT NOT NULL,
+    kode_barang VARCHAR(50) NOT NULL,
+    nama_barang VARCHAR(200) NOT NULL,
+    satuan VARCHAR(20) NOT NULL,
+    qty_credit INT NOT NULL,
+    harga_satuan DECIMAL(10,2) NOT NULL,
+    disc_persen DECIMAL(5,2) DEFAULT 0,
+    harga_setelah_disc DECIMAL(10,2) NOT NULL,
+    subtotal DECIMAL(15,2) NOT NULL,
+    ppn_persen DECIMAL(5,2) NOT NULL,
+    ppn_nominal DECIMAL(15,2) NOT NULL,
+    total_line DECIMAL(15,2) NOT NULL,
+    no_batch VARCHAR(50) NOT NULL,
+    tanggal_expired DATE NOT NULL,
+    alasan_credit VARCHAR(200),
+    referensi_retur_line INT,
+    status_verifikasi ENUM('PENDING', 'VERIFIED', 'DISPUTED') DEFAULT 'PENDING'
+);
+```
 
-1. **Credit Note Number Format**: `CN/DIST_CODE/YY/NNN[-REVN]`
+### 3. Table Verifikasi dan Dispute
 
-2. **Validation Rules**:
+```sql
+CREATE TABLE pbf_credit_verifications (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    credit_note_id BIGINT REFERENCES pbf_credit_notes(id),
+    status_verifikasi ENUM('VERIFIED', 'DISPUTED', 'PARTIAL_VERIFIED') NOT NULL,
+    tanggal_verifikasi TIMESTAMP NOT NULL,
+    pic_verifikasi VARCHAR(100),
+    hasil_verifikasi ENUM('APPROVED', 'REJECTED', 'PARTIAL_APPROVED') NOT NULL,
+    catatan_verifikasi TEXT,
+    total_verified DECIMAL(15,2),
+    adjustment_amount DECIMAL(15,2) DEFAULT 0,
+    final_credit_amount DECIMAL(15,2),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
 
-    - `nomor` required, unique per distributor
-    - `tanggal` required, cannot be future date
-    - `distributor_id` required, must exist and be active
-    - `return_reference` required for return-based credit notes
-    - `qty` required, integer, min: 1
-    - `harga_hna` required, decimal, min: 0
-    - Credit note amount must not exceed original invoice amount
+### 4. Table Dokumen Pendukung
 
-3. **Business Logic**:
+```sql
+CREATE TABLE pbf_credit_documents (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    credit_note_id BIGINT REFERENCES pbf_credit_notes(id),
+    jenis_dokumen ENUM('CREDIT_NOTE_ORIGINAL', 'RETURN_EVIDENCE', 'DISPUTE_EVIDENCE', 'VERIFICATION_DOC') NOT NULL,
+    nama_file VARCHAR(200) NOT NULL,
+    url_download VARCHAR(500) NOT NULL,
+    hash_file VARCHAR(100),
+    ukuran_file BIGINT,
+    uploaded_by VARCHAR(100),
+    uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
 
-    - Credit note hanya dapat dibuat berdasarkan approved return
-    - Amount dihitung otomatis: (qty × harga) - discount + tax
-    - Credit note otomatis mengurangi accounts payable
-    - Stock tidak terpengaruh (sudah dikurangi saat return)
-    - Credit dapat diaplikasikan ke invoice berikutnya atau refund
+---
 
-4. **Financial Impact**:
-    - Mengurangi accounts payable ke distributor
-    - Mengurangi cost of goods sold
-    - Adjustment tax calculation
-    - Impact pada cash flow projection
+## Business Rules yang Harus Diimplementasi PBF
 
-### Integration Points
+### 1. Credit Note Generation
+- **WAJIB** generate credit note dalam 24 jam setelah retur disetujui
+- **WAJIB** perhitungan yang akurat termasuk PPN dan discount
+- **WAJIB** reference ke original invoice dan retur
+- **WAJIB** attachment dokumen original credit note
 
-1. **With Return System**:
+### 2. Verification Process
+- **WAJIB** respond verifikasi/dispute dalam 48 jam kerja
+- **WAJIB** provide detailed explanation untuk setiap adjustment
+- **WAJIB** maintain audit trail untuk semua perubahan
 
-    - Validate return was approved
-    - Link credit note to specific return items
-    - Ensure credit amount matches approved return value
+### 3. Finance Integration
+- **WAJIB** integrasi dengan sistem accounting PBF
+- **WAJIB** automatic application ke customer balance
+- **WAJIB** tracking outstanding credit balance
 
-2. **With Accounting System**:
+### 4. Document Management
+- **WAJIB** digital signature untuk credit note
+- **WAJIB** PDF format untuk semua dokumen
+- **WAJIB** backup dan archival sesuai regulasi
 
-    - Auto-posting journal entries
-    - Accounts payable adjustment
-    - Tax recalculation
-    - Cost center allocation
+### 5. Error Handling
+```json
+{
+    "status": "error",
+    "error_code": "CREDIT_CALCULATION_ERROR",
+    "message": "Perhitungan credit note tidak valid",
+    "details": {
+        "line_number": 2,
+        "expected_amount": 3690.75,
+        "received_amount": 3500.00,
+        "difference": 190.75
+    },
+    "timestamp": "2024-12-22T10:00:00+07:00"
+}
+```
 
-3. **With Payment System**:
-    - Apply credit to future payments
-    - Adjust payment terms and due dates
-    - Handle refund processing if needed
+---
 
-### Credit Note Workflow
+## Integration Testing Checklist untuk PBF
 
-1. **Distributor Issues Credit Note**:
+### Phase 1: Credit Note Generation
+- [ ] Implement automatic credit note generation dari approved returns
+- [ ] Test calculation accuracy termasuk tax dan discount
+- [ ] Test document generation dan digital signature
+- [ ] Test integration dengan accounting system
 
-    - Based on approved return request
-    - Calculate credit amount with proper tax
-    - Send to Balimed via API
+### Phase 2: Verification Workflow
+- [ ] Implement endpoint untuk receive verification
+- [ ] Implement dispute handling mechanism
+- [ ] Test notification system untuk status changes
+- [ ] Test document exchange dan validation
 
-2. **Balimed Receives Credit Note**:
+### Phase 3: Finance Integration
+- [ ] Test credit application ke customer balance
+- [ ] Implement reporting untuk finance reconciliation
+- [ ] Test integration dengan payment system
+- [ ] Setup monitoring untuk overdue credits
 
-    - Validate against return records
-    - Check amount calculations
-    - Route to finance for verification
+---
 
-3. **Finance Verification**:
-
-    - Compare with return approval
-    - Verify amount calculations
-    - Check accounting implications
-    - Approve or dispute
-
-4. **Dispute Resolution** (if needed):
-
-    - Hospital raises dispute with details
-    - Distributor reviews and responds
-    - Revised credit note issued if agreed
-
-5. **Financial Processing**:
-    - Post journal entries
-    - Adjust accounts payable
-    - Apply to future payments or process refund
-
-### Error Handling
-
-**Common Error Codes:**
-
--   `VALIDATION_ERROR` - Input validation failed
--   `RETURN_NOT_FOUND` - Referenced return not found
--   `RETURN_NOT_APPROVED` - Return not approved for credit
--   `AMOUNT_MISMATCH` - Credit amount doesn't match return
--   `DUPLICATE_CREDIT_NOTE` - Credit note number already exists
--   `INVALID_TAX_CALCULATION` - Tax calculation incorrect
--   `ACCOUNTING_ERROR` - Posting to accounting failed
--   `SYSTEM_ERROR` - Internal server error
-
-### Audit Requirements
-
-All credit note transactions require complete audit trail:
-
--   Original return request reference
--   Approval chain for return
--   Credit note creation and approval
--   Any disputes and resolutions
--   Financial posting records
--   Payment application records
-
-### Compliance & Regulations
-
-1. **Tax Compliance**:
-
-    - Proper PPN calculation and reporting
-    - Credit note numbering sequence
-    - Support for tax audit requirements
-
-2. **Financial Reporting**:
-
-    - Impact on revenue recognition
-    - Accounts payable accuracy
-    - Cash flow reporting
-
-3. **Pharmaceutical Regulations**:
-    - Traceability of returned items
-    - Proper documentation for BPOM audit
-    - Cost calculation for pricing compliance
+_API ini memungkinkan PBF untuk mengelola credit note secara otomatis dengan verification process yang transparan dan audit trail yang lengkap untuk compliance finansial._

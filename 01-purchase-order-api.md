@@ -1,11 +1,12 @@
 # Purchase Order API Specification
 
-## Integrasi Sistem Farmasi Balimed dengan Distributor PT. PBF
+## Requirements untuk Programmer PT. PBF
 
-### Database Structure Analysis
+### Yang Harus Disiapkan oleh PBF
 
-**Master Table**: `m_farmasi_po`
-**Detail Table**: `t_farmasi_po`
+API ini menjelaskan struktur data dan endpoint yang **WAJIB disiapkan oleh programmer PT. PBF** untuk menerima Purchase Order dari Sistem Farmasi Balimed.
+
+**Reference Balimed Database**: `m_farmasi_po`, `t_farmasi_po`
 
 ### Master Purchase Order Fields
 
@@ -56,17 +57,17 @@ protected $fillable = [
 
 #### 1. Send Purchase Order to Distributor
 
-**Endpoint**: `POST /api/distributor/purchase-orders`
-**Direction**: Balimed → Distributor
+**Endpoint yang WAJIB Dibuat PBF**: `POST /api/distributor/purchase-orders`
+**Direction**: Balimed → **PBF (menerima)**
 **Content-Type**: `application/json`
 
-**Headers:**
+**Headers yang WAJIB Diterima dan Divalidasi PBF:**
 
 ```http
-Authorization: Bearer {api_token}
+Authorization: Bearer {api_token}        # WAJIB validasi token
 Content-Type: application/json
-X-Hospital-Code: BALIMED_DENPASAR
-X-Request-ID: {unique_request_id}
+X-Hospital-Code: BALIMED_DENPASAR       # WAJIB untuk identifikasi rumah sakit
+X-Request-ID: {unique_request_id}       # WAJIB untuk idempotency
 ```
 
 **Request Payload:**
